@@ -613,8 +613,8 @@ def activate_autonomous() -> Dict[str, str]:
     
     try:
         # Criar instância do sistema autônomo
-        improver = SelfImprover(neo4j_conn)
-        autonomous_system = AutonomousImprover(neo4j_conn, improver)
+        improver = SelfImprover(get_neo4j_connection())
+        autonomous_system = AutonomousImprover(get_neo4j_connection(), improver)
         
         # Executar em thread separada
         def run_autonomous():

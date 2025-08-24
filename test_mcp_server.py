@@ -51,7 +51,7 @@ def test_mcp_server():
             capture_output=True,
             text=True,
             env=env,
-            cwd='/home/codable/terminal/mcp-neo4j-py'
+            cwd=os.path.abspath('.')
         )
         
         print("=== SAÍDA DO SERVIDOR ===")

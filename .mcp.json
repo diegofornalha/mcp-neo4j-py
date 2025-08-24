@@ -1,14 +1,17 @@
 {
   "mcpServers": {
     "neo4j-memory": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "python3",
       "args": [
-        "--directory",
-        "/home/codable/terminal/mcp-neo4j-py",
-        "run",
-        "python",
-        "src/mcp_neo4j/server.py"
-      ]
+        "/workspace/src/mcp_neo4j/server.py"
+      ],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j"
+      }
     }
   }
 }
