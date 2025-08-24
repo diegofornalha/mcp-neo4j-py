@@ -10,7 +10,7 @@ from datetime import datetime
 # Configurações do Neo4j
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Cancela@1")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Neo4j@1992")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 def check_autonomous_status():

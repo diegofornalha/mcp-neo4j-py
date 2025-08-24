@@ -10,7 +10,7 @@ def execute_cypher(query):
     """Executa uma query Cypher no Neo4j via Docker"""
     cmd = [
         'docker', 'exec', '-i', 'terminal-neo4j',
-        'cypher-shell', '-u', 'neo4j', '-p', 'Cancela@1',
+        'cypher-shell', '-u', 'neo4j', '-p', 'Neo4j@1992',
         '--format', 'plain', query
     ]
     
@@ -44,7 +44,7 @@ SET m.name = 'MCP Neo4j Agent Memory',
         "method": "docker",
         "container_name": "mcp-neo4j-agent",
         "neo4j_container": "terminal-neo4j",
-        "credentials": "neo4j/Cancela@1"
+        "credentials": "neo4j/Neo4j@1992"
     }'
 RETURN m.name as name, m.status as status
 """

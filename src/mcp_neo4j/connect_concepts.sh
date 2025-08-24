@@ -4,7 +4,7 @@
 
 curl -s -X POST http://localhost:7474/db/neo4j/tx/commit \
   -H "Content-Type: application/json" \
-  -H "Authorization: Basic $(echo -n 'neo4j:Cancela@1' | base64)" \
+  -H "Authorization: Basic $(echo -n 'neo4j:Neo4j@1992' | base64)" \
   -d @- <<'EOF'
 {
   "statements": [

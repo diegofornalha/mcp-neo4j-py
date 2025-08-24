@@ -39,7 +39,7 @@ mcp = FastMCP("neo4j-memory")
 # Configurações do Neo4j (usando variáveis de ambiente ou padrões)
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Cancela@1")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Neo4j@1992")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 
@@ -82,12 +82,19 @@ class Neo4jConnection:
             self.driver.close()
 
 
-# Instância global da conexão
-neo4j_conn = Neo4jConnection()
+# Instância global da conexão (lazy initialization)
+neo4j_conn = None
 
 # Instância global do sistema autônomo
 autonomous_system = None
 autonomous_thread = None
+
+def get_neo4j_connection():
+    """Obtém ou cria conexão com Neo4j (lazy initialization)"""
+    global neo4j_conn
+    if neo4j_conn is None:
+        neo4j_conn = Neo4jConnection()
+    return neo4j_conn
 
 
 @mcp.tool()
@@ -138,7 +145,7 @@ def search_memories(
     
     cypher += " RETURN n, labels(n) as labels LIMIT $limit"
     
-    results = neo4j_conn.execute_query(cypher, params)
+    results = get_neo4j_connection().execute_query(cypher, params)
     
     memories = []
     for record in results:
@@ -191,7 +198,7 @@ def create_memory(
     RETURN n, labels(n) as labels, elementId(n) as id
     """
     
-    results = neo4j_conn.execute_query(cypher, {"props": properties})
+    results = get_neo4j_connection().execute_query(cypher, {"props": properties})
     
     if results:
         record = results[0]
@@ -250,7 +257,7 @@ def create_connection(
         "props": props
     }
     
-    results = neo4j_conn.execute_query(cypher, params)
+    results = get_neo4j_connection().execute_query(cypher, params)
     
     if results:
         rel = results[0]["r"]
@@ -298,7 +305,7 @@ def update_memory(
     RETURN n, labels(n) as labels
     """
     
-    results = neo4j_conn.execute_query(
+    results = get_neo4j_connection().execute_query(
         cypher, 
         {"node_id": node_id, "props": properties}
     )
@@ -343,7 +350,7 @@ def delete_memory(node_id: str) -> Dict[str, str]:
     RETURN count(n) as deleted
     """
     
-    results = neo4j_conn.execute_query(cypher, {"node_id": node_id})
+    results = get_neo4j_connection().execute_query(cypher, {"node_id": node_id})
     
     if results and results[0]["deleted"] > 0:
         return {"status": "success", "message": f"Memória {node_id} deletada"}
@@ -367,7 +374,7 @@ def list_memory_labels() -> List[Dict[str, Any]]:
     ORDER BY count DESC
     """
     
-    results = neo4j_conn.execute_query(cypher)
+    results = get_neo4j_connection().execute_query(cypher)
     
     return [
         {"label": r["label"], "count": r["count"]} 
@@ -410,7 +417,7 @@ def update_connection(
         "props": props
     }
     
-    results = neo4j_conn.execute_query(cypher, params)
+    results = get_neo4j_connection().execute_query(cypher, params)
     
     if results:
         rel = results[0]["r"]
@@ -463,7 +470,7 @@ def delete_connection(
         "to_id": to_memory_id
     }
     
-    results = neo4j_conn.execute_query(cypher, params)
+    results = get_neo4j_connection().execute_query(cypher, params)
     
     if results and results[0]["deleted"] > 0:
         return {"status": "success", "message": "Conexão deletada"}
@@ -482,7 +489,7 @@ def get_context_for_task(task_description: str) -> str:
     Returns:
         Contexto relevante incluindo regras, conhecimento e avisos
     """
-    return get_context_before_action(neo4j_conn, task_description)
+    return get_context_before_action(get_neo4j_connection(), task_description)
 
 
 @mcp.tool()
@@ -504,7 +511,7 @@ def learn_from_result(
     Returns:
         Confirmação do aprendizado salvo
     """
-    improver = SelfImprover(neo4j_conn)
+    improver = SelfImprover(get_neo4j_connection())
     improver.learn_from_execution(task, result, success)
     
     if category:
@@ -533,7 +540,7 @@ def suggest_best_approach(current_task: str) -> Dict[str, Any]:
     Returns:
         Sugestões incluindo regras, conhecimento relevante e decisões passadas
     """
-    improver = SelfImprover(neo4j_conn)
+    improver = SelfImprover(get_neo4j_connection())
     suggestions = improver.suggest_improvements(current_task)
     
     # Formatar resposta
@@ -619,7 +626,7 @@ def activate_autonomous() -> Dict[str, str]:
         autonomous_thread.start()
         
         # Salvar estado no Neo4j
-        neo4j_conn.execute_query("""
+        get_neo4j_connection().execute_query("""
             CREATE (a:AutonomousMode {
                 activated_at: datetime(),
                 status: 'active',
@@ -669,7 +676,7 @@ def deactivate_autonomous() -> Dict[str, str]:
         autonomous_system.stop()
         
         # Atualizar estado no Neo4j
-        neo4j_conn.execute_query("""
+        get_neo4j_connection().execute_query("""
             MATCH (a:AutonomousMode {status: 'active'})
             SET a.status = 'inactive',
                 a.deactivated_at = datetime()
@@ -701,10 +708,10 @@ def autonomous_status() -> Dict[str, Any]:
     global autonomous_system
     
     # Buscar status no Neo4j
-    result = neo4j_conn.execute_query("""
+    result = get_neo4j_connection().execute_query("""
         MATCH (a:AutonomousMode)
         RETURN a
-        ORDER BY a.activated_at DESC
+        ORDER BY a.activated_mode DESC
         LIMIT 1
     """)
     
@@ -738,7 +745,7 @@ def autonomous_status() -> Dict[str, Any]:
         }
     
     # Buscar estatísticas
-    stats = neo4j_conn.execute_query("""
+    stats = get_neo4j_connection().execute_query("""
         MATCH (l:Learning)
         WITH count(l) as total_learnings,
              sum(CASE WHEN l.applied = true THEN 1 ELSE 0 END) as applied_learnings
@@ -871,7 +878,8 @@ def main():
     except Exception:
         logger.exception("Erro fatal no servidor")
     finally:
-        neo4j_conn.close()
+        if neo4j_conn:
+            neo4j_conn.close()
         logger.info("Servidor encerrado")
 
 

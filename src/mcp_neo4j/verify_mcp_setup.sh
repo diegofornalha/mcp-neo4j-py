@@ -19,7 +19,7 @@ echo -e "\n2️⃣ Status do Neo4j:"
 if docker ps | grep -q terminal-neo4j; then
     echo "✅ Container terminal-neo4j está rodando"
     # Testar conexão
-    if docker exec terminal-neo4j cypher-shell -u neo4j -p "Cancela@1" "RETURN 1" &>/dev/null; then
+    if docker exec terminal-neo4j cypher-shell -u neo4j -p "Neo4j@1992" "RETURN 1" &>/dev/null; then
         echo "✅ Conexão com Neo4j funcionando"
     else
         echo "❌ Erro na conexão com Neo4j"
@@ -58,7 +58,7 @@ fi
 
 # 5. Verificar dados no Neo4j
 echo -e "\n5️⃣ Dados no Neo4j:"
-MEMORY_COUNT=$(docker exec terminal-neo4j cypher-shell -u neo4j -p "Cancela@1" --format plain "MATCH (m:Memory) RETURN COUNT(m) as count" 2>/dev/null | grep -o '[0-9]*' | head -1)
+MEMORY_COUNT=$(docker exec terminal-neo4j cypher-shell -u neo4j -p "Neo4j@1992" --format plain "MATCH (m:Memory) RETURN COUNT(m) as count" 2>/dev/null | grep -o '[0-9]*' | head -1)
 if [ ! -z "$MEMORY_COUNT" ]; then
     echo "✅ Neo4j tem $MEMORY_COUNT nó(s) Memory"
 else
