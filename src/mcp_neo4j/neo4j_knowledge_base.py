@@ -11,7 +11,7 @@ def execute_cypher(query):
     """Executa query Cypher via Docker"""
     cmd = [
         'docker', 'exec', '-i', 'terminal-neo4j',
-        'cypher-shell', '-u', 'neo4j', '-p', 'Neo4j@1992',
+        'cypher-shell', '-u', 'neo4j', '-p', 'password',
         '--format', 'plain', query
     ]
     

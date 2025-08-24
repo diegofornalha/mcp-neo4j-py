@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 # Configurações
 NEO4J_URI="bolt://localhost:7687"
 NEO4J_USERNAME="neo4j"
-NEO4J_PASSWORD="Neo4j@1992"
+NEO4J_PASSWORD="password"
 NEO4J_DATABASE="neo4j"
 
 echo -e "${YELLOW}Configurações:${NC}"

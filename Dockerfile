@@ -18,7 +18,7 @@ COPY src/ ./src/
 # Variáveis de ambiente para Neo4j
 ENV NEO4J_URI=bolt://neo4j:7687
 ENV NEO4J_USERNAME=neo4j
-ENV NEO4J_PASSWORD=Neo4j@1992
+ENV NEO4J_PASSWORD=password
 ENV NEO4J_DATABASE=neo4j
 
 # Comando para rodar o servidor MCP
