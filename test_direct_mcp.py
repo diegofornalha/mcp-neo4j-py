@@ -7,12 +7,54 @@ import json
 import subprocess
 import tempfile
 import os
+import sys
+import time
+from typing import Optional
+
+
+def _read_one_json_line(proc: subprocess.Popen, timeout: float = 5.0) -> Optional[dict]:
+    start = time.time()
+    while time.time() - start < timeout:
+        line = proc.stdout.readline()
+        if not line:
+            time.sleep(0.05)
+            continue
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            return json.loads(line)
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def _pick_python() -> str:
+    # Allow override
+    override = os.environ.get("MCP_PYTHON")
+    if override:
+        return override
+    # Prefer project venv if exists
+    venv_python = "/workspace/venv/bin/python"
+    if os.path.exists(venv_python):
+        return venv_python
+    return sys.executable
+
+
+def _child_env() -> dict:
+    env = os.environ.copy()
+    venv_site = "/workspace/venv/lib/python3.11/site-packages"
+    env["PYTHONPATH"] = (
+        (venv_site + os.pathsep + env["PYTHONPATH"]) if env.get("PYTHONPATH") else venv_site
+    )
+    return env
+
 
 def test_direct_mcp():
     """Testa o FastMCP diretamente"""
-    
+
     print("🧪 Testando FastMCP diretamente...")
-    
+
     # Criar um servidor MCP simples
     mcp_code = '''
 #!/usr/bin/env python3
@@ -34,104 +76,105 @@ def add(a: int, b: int) -> int:
 if __name__ == "__main__":
     mcp.run(transport="stdio")
 '''
-    
+
     # Criar arquivo temporário
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write(mcp_code)
         temp_file = f.name
-    
+
     try:
         print(f"1. Arquivo temporário criado: {temp_file}")
-        
-        # Testar se o arquivo pode ser executado
-        print("2. Testando execução do servidor...")
-        
-        # Comandos para testar
-        commands = [
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "test", "version": "1.0.0"}
-                }
-            },
-            {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "tools/list",
-                "params": {}
-            }
-        ]
-        
-        input_data = '\n'.join(json.dumps(cmd) for cmd in commands)
-        
-        # Executar o servidor
-        result = subprocess.run(
-            ['/home/codable/terminal/mcp-neo4j-py/.venv/bin/python', temp_file],
-            input=input_data,
-            capture_output=True,
+
+        python_exec = _pick_python()
+        print(f"Usando interpretador: {python_exec}")
+
+        # Start the server as a persistent process
+        proc = subprocess.Popen(
+            [python_exec, temp_file],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=10
+            bufsize=1,
+            env=_child_env(),
         )
-        
-        print("3. Resposta do servidor:")
-        print(result.stdout)
-        
-        if result.stderr:
-            print("4. Erros do servidor:")
-            print(result.stderr)
-        
-        # Verificar se as ferramentas foram listadas
-        if 'tools' in result.stdout:
+
+        # Initialize
+        init_req = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1.0.0"}
+            }
+        }
+        proc.stdin.write(json.dumps(init_req) + "\n")
+        proc.stdin.flush()
+        init_resp = _read_one_json_line(proc, timeout=5.0)
+        print("2. Resposta initialize:", init_resp)
+
+        # Send notifications/initialized
+        initialized_note = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": None,
+        }
+        proc.stdin.write(json.dumps(initialized_note) + "\n")
+        proc.stdin.flush()
+
+        # List tools
+        list_req = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {}
+        }
+        proc.stdin.write(json.dumps(list_req) + "\n")
+        proc.stdin.flush()
+        list_resp = _read_one_json_line(proc, timeout=5.0)
+        print("3. Resposta tools/list:", list_resp)
+
+        if list_resp and 'result' in list_resp:
             print("✅ Ferramentas foram listadas!")
         else:
             print("❌ Ferramentas não foram listadas")
-        
-        # Testar chamada de ferramenta
-        print("\n5. Testando chamada de ferramenta...")
-        
-        tool_commands = [
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "test", "version": "1.0.0"}
-                }
-            },
-            {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "tools/call",
-                "params": {
-                    "name": "hello",
-                    "arguments": {"name": "Test"}
-                }
+
+        # Call tool
+        call_req = {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "hello",
+                "arguments": {"name": "Test"}
             }
-        ]
-        
-        tool_input = '\n'.join(json.dumps(cmd) for cmd in tool_commands)
-        
-        tool_result = subprocess.run(
-            ['/home/codable/terminal/mcp-neo4j-py/.venv/bin/python', temp_file],
-            input=tool_input,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        
-        print("6. Resposta da ferramenta:")
-        print(tool_result.stdout)
-        
-        if tool_result.stderr:
-            print("7. Erros da ferramenta:")
-            print(tool_result.stderr)
-        
+        }
+        proc.stdin.write(json.dumps(call_req) + "\n")
+        proc.stdin.flush()
+        call_resp = _read_one_json_line(proc, timeout=5.0)
+        print("4. Resposta tools/call:", call_resp)
+
+        if call_resp and 'result' in call_resp and 'content' in call_resp['result']:
+            print("✅ Chamada de ferramenta bem-sucedida!")
+        else:
+            print("❌ Falha na chamada de ferramenta")
+
+        # Print stderr if any
+        try:
+            stderr_output = proc.stderr.read(4096)
+            if stderr_output:
+                print("[stderr]", stderr_output)
+        except Exception:
+            pass
+
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
     except subprocess.TimeoutExpired:
         print("❌ Timeout ao executar servidor")
     except Exception as e:
@@ -141,8 +184,9 @@ if __name__ == "__main__":
         try:
             os.unlink(temp_file)
             print(f"8. Arquivo temporário removido: {temp_file}")
-        except:
+        except Exception:
             pass
+
 
 if __name__ == "__main__":
     test_direct_mcp()
