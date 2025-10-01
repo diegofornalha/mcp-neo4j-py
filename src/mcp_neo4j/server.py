@@ -17,10 +17,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from .self_improve import SelfImprover, get_context_before_action
     from .autonomous import AutonomousImprover, activate_autonomous_mode
+    from .backup_thematic import add_backup_tools_to_mcp
 except ImportError:
     # Para execução direta do script
     from self_improve import SelfImprover, get_context_before_action
     from autonomous import AutonomousImprover, activate_autonomous_mode
+    from backup_thematic import add_backup_tools_to_mcp
 
 import asyncio
 import threading
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("neo4j-memory")
 
 # Configurações do Neo4j (usando variáveis de ambiente ou padrões)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")  # Usar IP direto no macOS
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
@@ -55,12 +57,16 @@ class Neo4jConnection:
         try:
             self.driver = GraphDatabase.driver(
                 NEO4J_URI,
-                auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+                auth=(NEO4J_USERNAME, NEO4J_PASSWORD),
+                encrypted=False,  # Desabilitar criptografia para conexão local
+                connection_timeout=2.0,  # Timeout curto para não bloquear
+                max_connection_pool_size=10,
+                max_transaction_retry_time=1.0  # Backoff curto na inicialização
             )
-            self.driver.verify_connectivity()
-            logger.info("Conectado ao Neo4j com sucesso")
+            # NÃO verificar conectividade no startup - fazer warmup em background
+            logger.info("Driver Neo4j criado (warmup em background)")
         except Exception:
-            logger.exception("Erro ao conectar com Neo4j")
+            logger.exception("Erro ao criar driver Neo4j")
             raise
     
     def execute_query(self, query: str, params: Optional[Dict] = None) -> List[Dict]:
@@ -84,6 +90,17 @@ class Neo4jConnection:
 
 # Instância global da conexão (lazy initialization)
 neo4j_conn = None
+
+def warmup_connection():
+    """Warmup da conexão Neo4j em background"""
+    try:
+        conn = get_neo4j_connection()
+        # Tentar uma query simples para aquecer o pool
+        conn.execute_query("RETURN 1 as test")
+        logger.info("Neo4j warmup concluído com sucesso")
+    except Exception as e:
+        logger.warning(f"Neo4j warmup falhou (não crítico): {e}")
+        # Não é crítico - próximas tentativas usarão o pool
 
 # Instância global do sistema autônomo
 autonomous_system = None
@@ -129,13 +146,6 @@ def search_memories(
     else:
         cypher = "MATCH (n)"
     
-    if query:
-        where_clauses.append(
-            "ANY(prop IN keys(n) WHERE "
-            "n[prop] IS NOT NULL AND toString(n[prop]) CONTAINS $query)"
-        )
-        params["query"] = query
-    
     if since_date:
         where_clauses.append("n.created_at >= datetime($since_date)")
         params["since_date"] = since_date
@@ -143,9 +153,46 @@ def search_memories(
     if where_clauses:
         cypher += " WHERE " + " AND ".join(where_clauses)
     
-    cypher += " RETURN n, labels(n) as labels LIMIT $limit"
+    # Buscar todos os nós e filtrar em Python se houver query
+    cypher += " RETURN n, labels(n) as labels"
+    
+    if not query:
+        # Se não há query de busca, aplicar limite no Cypher
+        cypher += " LIMIT $limit"
     
     results = get_neo4j_connection().execute_query(cypher, params)
+    
+    # Filtrar em Python se houver query de busca
+    if query:
+        filtered_results = []
+        query_lower = query.lower()
+        
+        for record in results:
+            node = record["n"]
+            node_dict = dict(node)
+            
+            # Verificar se alguma propriedade contém a query
+            matches = False
+            for key, value in node_dict.items():
+                if value is None:
+                    continue
+                    
+                # Converter valor para string, tratando arrays especialmente
+                if isinstance(value, list):
+                    str_value = " ".join(str(v) for v in value)
+                else:
+                    str_value = str(value)
+                
+                if query_lower in str_value.lower():
+                    matches = True
+                    break
+            
+            if matches:
+                filtered_results.append(record)
+                if len(filtered_results) >= limit:
+                    break
+        
+        results = filtered_results
     
     memories = []
     for record in results:
@@ -868,11 +915,32 @@ def get_guidance(topic: Optional[str] = None) -> str:
 
 def main():
     """Função principal para executar o servidor"""
+    # Configurar stdout para não bufferizar (importante no macOS)
+    import sys
+    sys.stdout.reconfigure(line_buffering=True)
+    
     try:
         logger.info("Iniciando servidor MCP Neo4j Memory (Python)...")
         logger.info(f"Neo4j URI: {NEO4J_URI}")
         logger.info(f"Database: {NEO4J_DATABASE}")
-        mcp.run(transport="stdio")
+        
+        # Iniciar warmup em thread separada (não bloquear MCP)
+        warmup_thread = threading.Thread(target=warmup_connection, daemon=True)
+        warmup_thread.start()
+        logger.info("Neo4j warmup iniciado em background")
+
+        # Adicionar ferramentas de backup temático
+        try:
+            neo4j_conn_for_backup = get_neo4j_connection()
+            add_backup_tools_to_mcp(mcp, neo4j_conn_for_backup)
+            logger.info("Ferramentas de backup temático adicionadas")
+        except Exception as e:
+            logger.warning(f"Não foi possível adicionar backup temático: {e}")
+
+        # Executar servidor MCP
+        logger.info("Starting MCP server on stdio transport...")
+        mcp.run()
+        
     except KeyboardInterrupt:
         logger.info("Servidor interrompido pelo usuário")
     except Exception:
