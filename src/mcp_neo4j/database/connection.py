@@ -67,21 +67,21 @@ class Neo4jConnection:
             self._connected = True
 
             logger.info(
-                "Conectado ao Neo4j",
-                uri=self.config.uri,
-                database=self.config.database
+                "Conectado ao Neo4j (uri=%s, database=%s)",
+                self.config.uri,
+                self.config.database,
             )
 
         except AuthError as e:
-            logger.error("Erro de autenticação Neo4j", error=str(e))
+            logger.error("Erro de autenticação Neo4j: %s", e)
             raise
 
         except ServiceUnavailable as e:
-            logger.error("Neo4j indisponível", error=str(e))
+            logger.error("Neo4j indisponível: %s", e)
             raise
 
-        except Exception as e:
-            logger.error("Erro ao conectar ao Neo4j", error=str(e))
+        except Exception as e:  # noqa: BLE001
+            logger.error("Erro ao conectar ao Neo4j: %s", e)
             raise
 
     async def close(self) -> None:
@@ -179,11 +179,12 @@ class Neo4jConnection:
                 # Converter records para lista de dicionários
                 records = [dict(record) for record in result.records]
 
+                truncated_query = query[:100]
                 logger.debug(
-                    "Query executada com sucesso",
-                    query=query[:100],
-                    records=len(records),
-                    attempt=attempt + 1
+                    "Query executada com sucesso (query=%s, records=%d, attempt=%d)",
+                    truncated_query,
+                    len(records),
+                    attempt + 1,
                 )
 
                 return records
@@ -193,31 +194,32 @@ class Neo4jConnection:
                 if attempt < retry_count - 1:
                     wait_time = 2 ** attempt
                     logger.warning(
-                        f"Neo4j indisponível, tentando novamente em {wait_time}s",
-                        attempt=attempt + 1,
-                        error=str(e)
+                        "Neo4j indisponível, tentando novamente em %ss (tentativa %d): %s",
+                        wait_time,
+                        attempt + 1,
+                        e,
                     )
                     await asyncio.sleep(wait_time)
                 else:
                     logger.error(
-                        "Neo4j indisponível após todas as tentativas",
-                        attempts=retry_count,
-                        error=str(e)
+                        "Neo4j indisponível após %d tentativas: %s",
+                        retry_count,
+                        e,
                     )
 
             except Neo4jError as e:
                 logger.error(
-                    "Erro ao executar query Neo4j",
-                    query=query[:100],
-                    error=str(e)
+                    "Erro ao executar query Neo4j (query=%s): %s",
+                    query[:100],
+                    e,
                 )
                 raise
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(
-                    "Erro inesperado ao executar query",
-                    query=query[:100],
-                    error=str(e)
+                    "Erro inesperado ao executar query (query=%s): %s",
+                    query[:100],
+                    e,
                 )
                 raise
 
@@ -240,8 +242,8 @@ class Neo4jConnection:
             )
             return True
 
-        except Exception as e:
-            logger.error("Health check falhou", error=str(e))
+        except Exception as e:  # noqa: BLE001
+            logger.error("Health check falhou: %s", e)
             return False
 
     async def get_database_info(self) -> Dict[str, Any]:
@@ -275,8 +277,8 @@ class Neo4jConnection:
 
             return {"database": self.config.database}
 
-        except Exception as e:
-            logger.warning("Não foi possível obter informações do database", error=str(e))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Não foi possível obter informações do database: %s", e)
             return {"database": self.config.database, "error": str(e)}
 
     @property
