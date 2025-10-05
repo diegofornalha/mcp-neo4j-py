@@ -68,3 +68,4 @@ tmp/
 
 # MCP specific
 .mcp.json
+.venv/
