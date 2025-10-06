@@ -51,31 +51,24 @@ def run_server() -> None:
     neo4j_config = Neo4jConfig.from_env()
     memory_config = MemoryConfig.from_env()
 
-    connection: Neo4jConnection | None = None
+    connection, memory = asyncio.run(_initialise(neo4j_config, memory_config))
 
-    try:
-        connection, memory = asyncio.run(_initialise(neo4j_config, memory_config))
+    mcp = create_mcp_server(
+        memory,
+        namespace=server_config.namespace,
+        log_level=server_config.log_level,
+    )
 
-        mcp = create_mcp_server(
-            memory,
-            namespace=server_config.namespace,
-            log_level=server_config.log_level,
-        )
+    transport = server_config.transport
+    mount_path = None
 
-        transport = server_config.transport
-        mount_path = None
+    if transport == "http":
+        transport = "streamable-http"
+    if transport == "sse":
+        mount_path = server_config.path
 
-        if transport == "http":
-            transport = "streamable-http"
-        if transport == "sse":
-            mount_path = server_config.path
-
-        logger.info("Executando FastMCP com transporte %s", transport)
-        mcp.run(transport=transport, mount_path=mount_path)
-
-    finally:
-        if connection is not None:
-            asyncio.run(connection.close())
+    logger.info("Executando FastMCP com transporte %s", transport)
+    mcp.run(transport=transport, mount_path=mount_path)
 
 
 def main() -> None:
