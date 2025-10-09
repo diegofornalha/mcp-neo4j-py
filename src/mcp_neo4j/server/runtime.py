@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from contextlib import suppress
 from typing import Tuple
 
@@ -51,10 +50,31 @@ def run_server() -> None:
     neo4j_config = Neo4jConfig.from_env()
     memory_config = MemoryConfig.from_env()
 
-    connection, memory = asyncio.run(_initialise(neo4j_config, memory_config))
+    # Lazy wrapper for memory - will be initialized on first use within event loop
+    class LazyMemory:
+        def __init__(self):
+            self._memory = None
+            self._connection = None
+            self._initialized = False
+
+        async def _ensure_init(self):
+            if not self._initialized:
+                self._connection, self._memory = await _initialise(neo4j_config, memory_config)
+                self._initialized = True
+            return self._memory
+
+        def __getattr__(self, name):
+            # Create coroutine wrapper for async methods
+            async def async_wrapper(*args, **kwargs):
+                memory = await self._ensure_init()
+                method = getattr(memory, name)
+                return await method(*args, **kwargs)
+            return async_wrapper
+
+    lazy_memory = LazyMemory()
 
     mcp = create_mcp_server(
-        memory,
+        lazy_memory,
         namespace=server_config.namespace,
         log_level=server_config.log_level,
     )
