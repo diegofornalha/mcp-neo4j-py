@@ -112,4 +112,4 @@ Após modificar `.env`, restart o servidor MCP:
 
 **Status**: ✅ Implementado e testado
 **Data**: 2025-11-09
-**Autor**: Assistente Claude
+**Autor**:  Claude

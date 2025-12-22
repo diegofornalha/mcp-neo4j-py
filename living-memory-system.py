@@ -445,9 +445,9 @@ async def main():
     results = await scheduler.run_cleanup_cycle()
 
     # 5. Monitorar crescimento
-    print("\n📈 Métricas de monitoramento...")
+    print("\n📈 Métricas de diagnostico...")
     monitoring = await memory_system.monitor_memory_growth()
-    print(f"  ✅ {len(monitoring)} queries de monitoramento configuradas")
+    print(f"  ✅ {len(monitoring)} queries de diagnostico configuradas")
 
     print("\n" + "=" * 60)
     print("✨ Sistema de Memória Viva configurado com sucesso!")

@@ -18,9 +18,9 @@ echo "  - Mesclando duplicatas"
 echo "  - Estabelecendo conexões"
 echo "  - Calculando relevância"
 
-# 3. Ativar monitoramento automático
+# 3. Ativar diagnostico automático
 echo ""
-echo "📊 Fase 3: Ativando monitoramento..."
+echo "📊 Fase 3: Ativando diagnostico..."
 echo "  - Score de relevância ativado"
 echo "  - Decay automático configurado"
 echo "  - Limpeza periódica agendada"

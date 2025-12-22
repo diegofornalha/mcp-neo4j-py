@@ -55,7 +55,7 @@ class AutonomousImprover:
                     await self.save_patterns(patterns)
 
             except Exception as e:
-                logger.error(f"Erro no monitoramento: {e}")
+                logger.error(f"Erro no diagnostico: {e}")
                 # Salvar erro para aprender
                 self.improver.learn_from_execution("monitoring", str(e), success=False)
 
