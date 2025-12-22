@@ -1,11 +1,13 @@
 """
 Gerenciamento de conexão com Neo4j usando AsyncDriver.
 """
-from typing import Any, Dict, List, Optional
-from contextlib import asynccontextmanager
-from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession, RoutingControl
-from neo4j.exceptions import ServiceUnavailable, AuthError, Neo4jError
+
 import asyncio
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession, RoutingControl
+from neo4j.exceptions import AuthError, Neo4jError, ServiceUnavailable
 
 from ..core.config import Neo4jConfig
 from ..utils.logging_setup import get_logger
@@ -120,9 +122,7 @@ class Neo4jConnection:
                 result = await session.run("RETURN 1")
         """
         if not self._driver:
-            raise RuntimeError(
-                "Driver não inicializado. Chame connect() primeiro."
-            )
+            raise RuntimeError("Driver não inicializado. Chame connect() primeiro.")
 
         async with self._driver.session(database=self.config.database) as session:
             yield session
@@ -161,9 +161,7 @@ class Neo4jConnection:
             )
         """
         if not self._driver:
-            raise RuntimeError(
-                "Driver não inicializado. Chame connect() primeiro."
-            )
+            raise RuntimeError("Driver não inicializado. Chame connect() primeiro.")
 
         last_error = None
 
@@ -192,11 +190,12 @@ class Neo4jConnection:
             except ServiceUnavailable as e:
                 last_error = e
                 if attempt < retry_count - 1:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(
                         "Neo4j indisponível, tentando novamente em %ss (tentativa %d): %s",
                         wait_time,
-                        attempt + 1,
+                        attempt +
+                        1,
                         e,
                     )
                     await asyncio.sleep(wait_time)
@@ -237,8 +236,7 @@ class Neo4jConnection:
         """
         try:
             await self.execute_query(
-                "RETURN 1 as health",
-                routing_control=RoutingControl.READ
+                "RETURN 1 as health", routing_control=RoutingControl.READ
             )
             return True
 
@@ -264,7 +262,7 @@ class Neo4jConnection:
                 CALL dbms.components() YIELD name, versions, edition
                 RETURN name, versions, edition
                 """,
-                routing_control=RoutingControl.READ
+                routing_control=RoutingControl.READ,
             )
 
             if result:

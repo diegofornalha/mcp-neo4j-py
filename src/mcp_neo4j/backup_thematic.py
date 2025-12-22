@@ -4,14 +4,14 @@ Sistema de Backup Temático para Neo4j
 Permite backups separados por tema/categoria com validação de integridade
 """
 
-import json
 import hashlib
-import zipfile
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
-from neo4j import GraphDatabase
+import json
 import logging
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Set
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,31 +36,27 @@ class ThematicBackup:
         """
 
         results = self.conn.execute_query(query)
-        return {r['theme']: r['count'] for r in results}
+        return {r["theme"]: r["count"] for r in results}
 
     def get_smart_themes(self) -> Dict[str, List[str]]:
         """Define agrupamentos inteligentes de temas relacionados"""
 
-        # Análise de labels e propriedades
-        label_query = """
-        MATCH (n)
-        UNWIND labels(n) as label
-        RETURN DISTINCT label, count(n) as count
-        ORDER BY count DESC
-        """
-
-        labels = self.conn.execute_query(label_query)
-
         # Definir agrupamentos inteligentes
         theme_groups = {
-            "learning_knowledge": ["Learning", "knowledge", "pattern", "insight", "lesson"],
+            "learning_knowledge": [
+                "Learning",
+                "knowledge",
+                "pattern",
+                "insight",
+                "lesson",
+            ],
             "communication": ["message", "conversation", "interaction", "response"],
             "technical": ["code", "bug", "error", "fix", "implementation", "technical"],
             "project_work": ["project", "task", "feature", "requirement", "solution"],
             "system_components": ["Component", "Agent", "System", "tool", "skill"],
             "improvements": ["Improvement", "optimization", "enhancement", "update"],
             "autonomous": ["autonomous", "self_improve", "decision", "rule"],
-            "general": []  # Para itens não categorizados
+            "general": [],  # Para itens não categorizados
         }
 
         return theme_groups
@@ -82,12 +78,14 @@ class ThematicBackup:
         # Buscar nós do tema
         filter_conditions = []
         for filter_item in node_filters:
-            filter_conditions.extend([
-                f"'{filter_item}' IN labels(n)",
-                f"n.category = '{filter_item}'",
-                f"n.type = '{filter_item}'",
-                f"n.topic = '{filter_item}'"
-            ])
+            filter_conditions.extend(
+                [
+                    f"'{filter_item}' IN labels(n)",
+                    f"n.category = '{filter_item}'",
+                    f"n.type = '{filter_item}'",
+                    f"n.topic = '{filter_item}'",
+                ]
+            )
 
         where_clause = " OR ".join(filter_conditions) if filter_conditions else "TRUE"
 
@@ -114,103 +112,114 @@ class ThematicBackup:
                 "statistics": {
                     "total_nodes": 0,
                     "total_relationships": 0,
-                    "node_types": {}
-                }
+                    "node_types": {},
+                },
             },
             "nodes": [],
             "relationships": [],
-            "integrity": {}
+            "integrity": {},
         }
 
         # Processar resultados
-        seen_nodes = set()
-        seen_relationships = set()
+        seen_nodes: Set[str] = set()
+        seen_relationships: Set[str] = set()
 
         for record in results:
-            node = record['node']
+            node = record["node"]
             node_id = node.element_id
 
             if node_id not in seen_nodes:
-                backup_data['nodes'].append({
-                    "id": node_id,
-                    "labels": list(node.labels),
-                    "properties": dict(node)
-                })
+                backup_data["nodes"].append(
+                    {
+                        "id": node_id,
+                        "labels": list(node.labels),
+                        "properties": dict(node),
+                    }
+                )
                 seen_nodes.add(node_id)
 
             # Adicionar relacionamentos
-            for rel in record['relationships'] or []:
+            for rel in record["relationships"] or []:
                 rel_id = rel.element_id
                 if rel_id not in seen_relationships:
-                    backup_data['relationships'].append({
-                        "id": rel_id,
-                        "type": rel.type,
-                        "start": rel.start_node.element_id,
-                        "end": rel.end_node.element_id,
-                        "properties": dict(rel)
-                    })
+                    backup_data["relationships"].append(
+                        {
+                            "id": rel_id,
+                            "type": rel.type,
+                            "start": rel.start_node.element_id,
+                            "end": rel.end_node.element_id,
+                            "properties": dict(rel),
+                        }
+                    )
                     seen_relationships.add(rel_id)
 
             # Adicionar nós conectados se não estiverem no filtro principal
-            for connected in record['connected_nodes'] or []:
+            for connected in record["connected_nodes"] or []:
                 conn_id = connected.element_id
                 if conn_id not in seen_nodes:
-                    backup_data['nodes'].append({
-                        "id": conn_id,
-                        "labels": list(connected.labels),
-                        "properties": dict(connected),
-                        "connected_only": True  # Marca como nó conectado
-                    })
+                    backup_data["nodes"].append(
+                        {
+                            "id": conn_id,
+                            "labels": list(connected.labels),
+                            "properties": dict(connected),
+                            "connected_only": True,  # Marca como nó conectado
+                        }
+                    )
                     seen_nodes.add(conn_id)
 
         # Atualizar estatísticas
-        backup_data['metadata']['statistics']['total_nodes'] = len(backup_data['nodes'])
-        backup_data['metadata']['statistics']['total_relationships'] = len(backup_data['relationships'])
+        backup_data["metadata"]["statistics"]["total_nodes"] = len(backup_data["nodes"])
+        backup_data["metadata"]["statistics"]["total_relationships"] = len(
+            backup_data["relationships"]
+        )
 
         # Contar tipos de nós
-        for node in backup_data['nodes']:
-            for label in node['labels']:
-                backup_data['metadata']['statistics']['node_types'][label] = \
-                    backup_data['metadata']['statistics']['node_types'].get(label, 0) + 1
+        for node in backup_data["nodes"]:
+            for label in node["labels"]:
+                backup_data["metadata"]["statistics"]["node_types"][label] = (
+                    backup_data["metadata"]["statistics"]["node_types"].get(label, 0)
+                    + 1
+                )
 
         # Calcular hash de integridade
-        content_str = json.dumps(backup_data['nodes'] + backup_data['relationships'],
-                                sort_keys=True)
+        content_str = json.dumps(
+            backup_data["nodes"] + backup_data["relationships"], sort_keys=True
+        )
         content_hash = hashlib.sha256(content_str.encode()).hexdigest()
 
-        backup_data['integrity'] = {
+        backup_data["integrity"] = {
             "hash": content_hash,
             "algorithm": "SHA256",
             "nodes_checksum": hashlib.md5(
-                json.dumps(backup_data['nodes'], sort_keys=True).encode()
+                json.dumps(backup_data["nodes"], sort_keys=True).encode()
             ).hexdigest(),
             "relationships_checksum": hashlib.md5(
-                json.dumps(backup_data['relationships'], sort_keys=True).encode()
-            ).hexdigest()
+                json.dumps(backup_data["relationships"], sort_keys=True).encode()
+            ).hexdigest(),
         }
 
         # Salvar arquivo
         filename = f"THEME_{theme_name}_{timestamp}.json"
         filepath = self.backup_dir / filename
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(backup_data, f, indent=2, ensure_ascii=False)
 
         # Criar ZIP com validação
         zip_name = f"THEME_{theme_name}_{timestamp}.zip"
         zip_path = self.backup_dir / zip_name
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(filepath, filename)
 
             # Adicionar arquivo de validação
             validation = {
                 "original_hash": content_hash,
                 "file_size": filepath.stat().st_size,
-                "node_count": len(backup_data['nodes']),
-                "relationship_count": len(backup_data['relationships']),
+                "node_count": len(backup_data["nodes"]),
+                "relationship_count": len(backup_data["relationships"]),
                 "theme": theme_name,
-                "timestamp": timestamp
+                "timestamp": timestamp,
             }
 
             zf.writestr("validation.json", json.dumps(validation, indent=2))
@@ -258,7 +267,7 @@ class ThematicBackup:
         index = {
             "created_at": datetime.now().isoformat(),
             "total_themes": len(backup_files),
-            "backups": []
+            "backups": [],
         }
 
         for theme, filepath in backup_files.items():
@@ -267,15 +276,19 @@ class ThematicBackup:
 
             path = Path(filepath)
             if path.exists():
-                index["backups"].append({
-                    "theme": theme,
-                    "file": path.name,
-                    "size_kb": path.stat().st_size / 1024,
-                    "created": datetime.fromtimestamp(path.stat().st_mtime).isoformat()
-                })
+                index["backups"].append(
+                    {
+                        "theme": theme,
+                        "file": path.name,
+                        "size_kb": path.stat().st_size / 1024,
+                        "created": datetime.fromtimestamp(
+                            path.stat().st_mtime
+                        ).isoformat(),
+                    }
+                )
 
         index_path = self.backup_dir / "MASTER_INDEX.json"
-        with open(index_path, 'w') as f:
+        with open(index_path, "w") as f:
             json.dump(index, f, indent=2)
 
         logger.info(f"📚 Índice mestre criado: {index_path}")
@@ -284,12 +297,16 @@ class ThematicBackup:
         """Valida integridade de um backup"""
 
         try:
-            with zipfile.ZipFile(zip_path, 'r') as zf:
+            with zipfile.ZipFile(zip_path, "r") as zf:
                 # Ler validação
                 validation_data = json.loads(zf.read("validation.json"))
 
                 # Extrair e verificar dados
-                files = [f for f in zf.namelist() if f.endswith('.json') and f != 'validation.json']
+                files = [
+                    f
+                    for f in zf.namelist()
+                    if f.endswith(".json") and f != "validation.json"
+                ]
 
                 if not files:
                     logger.error("Nenhum arquivo de dados encontrado")
@@ -300,13 +317,12 @@ class ThematicBackup:
 
                 # Recalcular hash
                 content_str = json.dumps(
-                    backup_data['nodes'] + backup_data['relationships'],
-                    sort_keys=True
+                    backup_data["nodes"] + backup_data["relationships"], sort_keys=True
                 )
                 calculated_hash = hashlib.sha256(content_str.encode()).hexdigest()
 
                 # Comparar
-                if calculated_hash == validation_data['original_hash']:
+                if calculated_hash == validation_data["original_hash"]:
                     logger.info(f"✅ Backup válido: {zip_path}")
                     return True
                 else:
@@ -324,10 +340,7 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
     backup_system = ThematicBackup(neo4j_connection)
 
     @mcp_instance.tool()
-    def backup_by_theme(
-        theme: str,
-        validate: bool = True
-    ) -> Dict[str, Any]:
+    def backup_by_theme(theme: str, validate: bool = True) -> Dict[str, Any]:
         """
         Cria backup de um tema específico
 
@@ -344,7 +357,7 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
         if theme not in theme_groups:
             return {
                 "error": f"Tema '{theme}' não reconhecido",
-                "available_themes": list(theme_groups.keys())
+                "available_themes": list(theme_groups.keys()),
             }
 
         filepath = backup_system.backup_by_theme(theme, theme_groups[theme])
@@ -353,7 +366,7 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
             "success": True,
             "theme": theme,
             "file": filepath,
-            "size_kb": Path(filepath).stat().st_size / 1024
+            "size_kb": Path(filepath).stat().st_size / 1024,
         }
 
         if validate:
@@ -376,7 +389,7 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
             "success": True,
             "total_themes": len(backup_files),
             "backups": backup_files,
-            "master_index": str(backup_system.backup_dir / "MASTER_INDEX.json")
+            "master_index": str(backup_system.backup_dir / "MASTER_INDEX.json"),
         }
 
     @mcp_instance.tool()
@@ -394,13 +407,10 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
         return {
             "raw_themes": themes,
             "smart_groups": {
-                name: {
-                    "filters": filters,
-                    "description": _get_theme_description(name)
-                }
+                name: {"filters": filters, "description": _get_theme_description(name)}
                 for name, filters in groups.items()
             },
-            "total_nodes": sum(themes.values())
+            "total_nodes": sum(themes.values()),
         }
 
     @mcp_instance.tool()
@@ -420,7 +430,7 @@ def add_backup_tools_to_mcp(mcp_instance, neo4j_connection):
         return {
             "file": filepath,
             "valid": is_valid,
-            "checked_at": datetime.now().isoformat()
+            "checked_at": datetime.now().isoformat(),
         }
 
     return backup_system
@@ -436,6 +446,6 @@ def _get_theme_description(theme_name: str) -> str:
         "system_components": "Componentes e agentes do sistema",
         "improvements": "Melhorias e otimizações",
         "autonomous": "Sistema autônomo e regras",
-        "general": "Itens gerais não categorizados"
+        "general": "Itens gerais não categorizados",
     }
     return descriptions.get(theme_name, "Sem descrição")

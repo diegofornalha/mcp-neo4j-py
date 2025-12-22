@@ -7,14 +7,24 @@ Acesso rápido ao conhecimento armazenado no grafo
 import subprocess
 import sys
 
+
 def execute_cypher(query):
     """Executa query Cypher via Docker"""
     cmd = [
-        'docker', 'exec', '-i', 'terminal-neo4j',
-        'cypher-shell', '-u', 'neo4j', '-p', 'password',
-        '--format', 'plain', query
+        "docker",
+        "exec",
+        "-i",
+        "terminal-neo4j",
+        "cypher-shell",
+        "-u",
+        "neo4j",
+        "-p",
+        "password",
+        "--format",
+        "plain",
+        query,
     ]
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout
@@ -22,11 +32,12 @@ def execute_cypher(query):
         print(f"❌ Erro: {e.stderr}")
         return None
 
+
 def menu():
     """Menu interativo para consultar conhecimento"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🧠 BASE DE CONHECIMENTO NEO4J")
-    print("="*60)
+    print("=" * 60)
     print("\n📚 CONSULTAS DISPONÍVEIS:\n")
     print("1. Ver toda documentação")
     print("2. Buscar exemplos Python")
@@ -37,7 +48,8 @@ def menu():
     print("7. Ver configuração MCP")
     print("8. Query customizada")
     print("0. Sair")
-    print("\n" + "-"*60)
+    print("\n" + "-" * 60)
+
 
 def view_documentation():
     """Visualizar toda documentação"""
@@ -48,6 +60,7 @@ def view_documentation():
     """
     print("\n📖 DOCUMENTAÇÃO DISPONÍVEL:")
     print(execute_cypher(query))
+
 
 def view_python_examples():
     """Ver exemplos Python"""
@@ -60,6 +73,7 @@ def view_python_examples():
     print("\n🐍 EXEMPLOS PYTHON:")
     print(execute_cypher(query))
 
+
 def view_cypher_commands():
     """Ver comandos Cypher"""
     query = """
@@ -69,6 +83,7 @@ def view_cypher_commands():
     """
     print("\n⚡ COMANDOS CYPHER:")
     print(execute_cypher(query))
+
 
 def view_modeling_patterns():
     """Ver padrões de modelagem"""
@@ -81,6 +96,7 @@ def view_modeling_patterns():
     if result:
         print(result)
 
+
 def view_statistics():
     """Estatísticas do grafo"""
     query = """
@@ -92,7 +108,7 @@ def view_statistics():
     """
     print("\n📊 ESTATÍSTICAS DO GRAFO:")
     print(execute_cypher(query))
-    
+
     # Total de nós e relacionamentos
     total_query = """
     MATCH (n)
@@ -103,12 +119,13 @@ def view_statistics():
     print("\n📈 TOTAIS:")
     print(execute_cypher(total_query))
 
+
 def search_keyword(keyword):
     """Buscar por palavra-chave"""
     query = f"""
     MATCH (n)
     WHERE ANY(prop IN keys(n) WHERE toString(n[prop]) CONTAINS '{keyword}')
-    RETURN labels(n)[0] as Tipo, 
+    RETURN labels(n)[0] as Tipo,
            COALESCE(n.name, n.type, toString(id(n))) as Nome,
            keys(n) as Propriedades
     LIMIT 20
@@ -120,6 +137,7 @@ def search_keyword(keyword):
     else:
         print("Nenhum resultado encontrado.")
 
+
 def view_mcp_config():
     """Ver configuração MCP"""
     query = """
@@ -129,46 +147,49 @@ def view_mcp_config():
     print("\n⚙️ CONFIGURAÇÃO MCP:")
     print(execute_cypher(query))
 
+
 def custom_query():
     """Executar query customizada"""
     print("\n💡 Digite sua query Cypher (ou 'voltar' para cancelar):")
     query = input("> ")
-    if query.lower() != 'voltar':
+    if query.lower() != "voltar":
         print("\n📋 RESULTADO:")
         result = execute_cypher(query)
         if result:
             print(result)
+
 
 # Loop principal
 def main():
     while True:
         menu()
         choice = input("\n👉 Escolha uma opção: ")
-        
-        if choice == '1':
+
+        if choice == "1":
             view_documentation()
-        elif choice == '2':
+        elif choice == "2":
             view_python_examples()
-        elif choice == '3':
+        elif choice == "3":
             view_cypher_commands()
-        elif choice == '4':
+        elif choice == "4":
             view_modeling_patterns()
-        elif choice == '5':
+        elif choice == "5":
             view_statistics()
-        elif choice == '6':
+        elif choice == "6":
             keyword = input("\n🔍 Digite a palavra-chave: ")
             search_keyword(keyword)
-        elif choice == '7':
+        elif choice == "7":
             view_mcp_config()
-        elif choice == '8':
+        elif choice == "8":
             custom_query()
-        elif choice == '0':
+        elif choice == "0":
             print("\n👋 Até logo!")
             sys.exit(0)
         else:
             print("\n⚠️ Opção inválida!")
-        
+
         input("\n[Enter para continuar...]")
+
 
 if __name__ == "__main__":
     try:

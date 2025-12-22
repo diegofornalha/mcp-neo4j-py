@@ -3,27 +3,27 @@ Testes unitários para database/connection.py
 Testa ConnectionPool, CircuitBreaker e QueryCache
 """
 
-import pytest
-import time
-from unittest.mock import Mock, patch, MagicMock
-from neo4j.exceptions import ServiceUnavailable, SessionExpired
-
-# Import do módulo a ser testado
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+import sys
+import time
+from unittest.mock import Mock, patch
 
-from mcp_neo4j.connection_manager import (
+import pytest
+from neo4j.exceptions import ServiceUnavailable
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
+
+from mcp_neo4j.connection_manager import (  # noqa: E402
     CircuitBreaker,
     ConnectionPool,
     QueryCache,
-    cached_query
+    cached_query,
 )
-
 
 # ============================================================================
 # Testes do CircuitBreaker
 # ============================================================================
+
 
 class TestCircuitBreaker:
     """Testes da classe CircuitBreaker"""
@@ -132,6 +132,7 @@ class TestCircuitBreaker:
 # Testes do ConnectionPool
 # ============================================================================
 
+
 class TestConnectionPool:
     """Testes da classe ConnectionPool"""
 
@@ -145,11 +146,14 @@ class TestConnectionPool:
     @pytest.fixture
     def connection_pool(self, mock_driver, neo4j_config):
         """Fixture de ConnectionPool com mocks"""
-        with patch('mcp_neo4j.connection_manager.GraphDatabase.driver', return_value=mock_driver):
+        with patch(
+            "mcp_neo4j.connection_manager.GraphDatabase.driver",
+            return_value=mock_driver,
+        ):
             pool = ConnectionPool(
                 uri=neo4j_config["uri"],
                 auth=(neo4j_config["username"], neo4j_config["password"]),
-                database=neo4j_config["database"]
+                database=neo4j_config["database"],
             )
             return pool
 
@@ -162,7 +166,10 @@ class TestConnectionPool:
 
     def test_ensure_connected_lazy_initialization(self, connection_pool, mock_driver):
         """Testa lazy initialization da conexão"""
-        with patch('mcp_neo4j.connection_manager.GraphDatabase.driver', return_value=mock_driver):
+        with patch(
+            "mcp_neo4j.connection_manager.GraphDatabase.driver",
+            return_value=mock_driver,
+        ):
             connection_pool.ensure_connected()
             assert connection_pool._connected is True
             assert connection_pool.driver is not None
@@ -182,7 +189,10 @@ class TestConnectionPool:
 
     def test_reconnect_on_connection_loss(self, connection_pool, mock_driver):
         """Testa reconexão automática"""
-        with patch('mcp_neo4j.connection_manager.GraphDatabase.driver', return_value=mock_driver):
+        with patch(
+            "mcp_neo4j.connection_manager.GraphDatabase.driver",
+            return_value=mock_driver,
+        ):
             connection_pool._reconnect()
             assert connection_pool._connected is True
             assert connection_pool.metrics["reconnections"] == 1
@@ -209,7 +219,9 @@ class TestConnectionPool:
         assert len(result) == 1
         assert connection_pool.metrics["queries_executed"] == 1
 
-    def test_execute_with_retry_handles_service_unavailable(self, connection_pool, mock_driver):
+    def test_execute_with_retry_handles_service_unavailable(
+        self, connection_pool, mock_driver
+    ):
         """Testa retry ao encontrar ServiceUnavailable"""
         mock_session = Mock()
         mock_session.run.side_effect = ServiceUnavailable("Connection lost")
@@ -274,6 +286,7 @@ class TestConnectionPool:
 # ============================================================================
 # Testes do QueryCache
 # ============================================================================
+
 
 class TestQueryCache:
     """Testes da classe QueryCache"""
@@ -390,6 +403,7 @@ class TestQueryCache:
 # Testes do Decorator cached_query
 # ============================================================================
 
+
 class TestCachedQueryDecorator:
     """Testes do decorator @cached_query"""
 
@@ -422,6 +436,7 @@ class TestCachedQueryDecorator:
 # ============================================================================
 # Testes de Integração Connection Manager
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestConnectionManagerIntegration:

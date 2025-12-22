@@ -53,6 +53,35 @@ src/mcp_neo4j/
     └── logging_setup.py
 ```
 
+## ⚡ Otimizações de Performance
+
+Para evitar respostas MCP muito grandes (~10k+ tokens), o servidor aplica limites automáticos:
+
+- **Máximo de 50 entidades** por query (configurável via `MEMORY_MAX_ENTITIES`)
+- **Máximo de 20 observações** por entidade (configurável via `MEMORY_MAX_OBSERVATIONS`)
+- **Ordenação por relevância** usando scores de fulltext search
+
+### Ajustar Limites
+
+Edite o arquivo `.env` para personalizar:
+
+```bash
+# Para projetos menores (respostas mais rápidas)
+MEMORY_MAX_ENTITIES=25
+MEMORY_MAX_OBSERVATIONS=10
+
+# Para projetos maiores (mais contexto)
+MEMORY_MAX_ENTITIES=100
+MEMORY_MAX_OBSERVATIONS=30
+```
+
+### Por que Limitar?
+
+- **Context Window**: Respostas menores consomem menos tokens
+- **Performance**: Queries mais rápidas
+- **UX**: Claude Code recebe respostas instantâneas
+- **Custo**: Menos tokens = menor custo de API
+
 ## 🔧 Desenvolvimento
 
 ### Setup Local

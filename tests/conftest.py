@@ -3,16 +3,16 @@ Configuração global de fixtures para testes pytest
 Fornece mocks reutilizáveis para Neo4j, MCP e outros componentes
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, MagicMock, AsyncMock, patch
-from typing import Dict, List, Any
 from datetime import datetime
+from unittest.mock import AsyncMock, Mock
 
+import pytest
 
 # ============================================================================
 # Fixtures de Configuração
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -29,13 +29,14 @@ def neo4j_config():
         "uri": "bolt://localhost:7687",
         "username": "neo4j",
         "password": "testpassword",
-        "database": "neo4j"
+        "database": "neo4j",
     }
 
 
 # ============================================================================
 # Fixtures de Mock Neo4j
 # ============================================================================
+
 
 @pytest.fixture
 def mock_neo4j_driver():
@@ -85,6 +86,7 @@ def mock_neo4j_connection(mock_neo4j_driver):
 # Fixtures de Dados de Teste
 # ============================================================================
 
+
 @pytest.fixture
 def sample_memory_data():
     """Dados de memória de exemplo para testes"""
@@ -94,8 +96,8 @@ def sample_memory_data():
         "properties": {
             "description": "Test memory description",
             "content": "Test content",
-            "created_at": datetime.now().isoformat()
-        }
+            "created_at": datetime.now().isoformat(),
+        },
     }
 
 
@@ -105,18 +107,14 @@ def sample_entity_data():
     return {
         "name": "test_entity",
         "entityType": "person",
-        "observations": ["First observation", "Second observation"]
+        "observations": ["First observation", "Second observation"],
     }
 
 
 @pytest.fixture
 def sample_relation_data():
     """Dados de relação de exemplo"""
-    return {
-        "from": "entity1",
-        "to": "entity2",
-        "relationType": "KNOWS"
-    }
+    return {"from": "entity1", "to": "entity2", "relationType": "KNOWS"}
 
 
 @pytest.fixture
@@ -127,36 +125,28 @@ def sample_knowledge_graph():
             {
                 "name": "Alice",
                 "entityType": "person",
-                "observations": ["Works at TechCorp", "Likes Python"]
+                "observations": ["Works at TechCorp", "Likes Python"],
             },
             {
                 "name": "Bob",
                 "entityType": "person",
-                "observations": ["Team lead", "Expert in Neo4j"]
-            }
+                "observations": ["Team lead", "Expert in Neo4j"],
+            },
         ],
-        "relations": [
-            {
-                "from": "Alice",
-                "to": "Bob",
-                "relationType": "WORKS_WITH"
-            }
-        ]
+        "relations": [{"from": "Alice", "to": "Bob", "relationType": "WORKS_WITH"}],
     }
 
 
 @pytest.fixture
 def sample_batch_nodes():
     """Lote de nós para testes de batch"""
-    return [
-        {"name": f"node_{i}", "value": i, "type": "test"}
-        for i in range(100)
-    ]
+    return [{"name": f"node_{i}", "value": i, "type": "test"} for i in range(100)]
 
 
 # ============================================================================
 # Fixtures de Mock MCP
 # ============================================================================
+
 
 @pytest.fixture
 def mock_mcp_server():
@@ -173,7 +163,7 @@ def mock_mcp_context():
     context = Mock()
     context.request_context = {
         "user": "test_user",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
     return context
 
@@ -182,6 +172,7 @@ def mock_mcp_context():
 # Fixtures de Connection Manager
 # ============================================================================
 
+
 @pytest.fixture
 def mock_connection_pool(mock_neo4j_driver):
     """Mock do ConnectionPool"""
@@ -189,12 +180,14 @@ def mock_connection_pool(mock_neo4j_driver):
     pool.driver = mock_neo4j_driver
     pool.ensure_connected = Mock()
     pool.execute_with_retry = Mock(return_value=[])
-    pool.get_metrics = Mock(return_value={
-        "queries_executed": 0,
-        "queries_failed": 0,
-        "reconnections": 0,
-        "is_connected": True
-    })
+    pool.get_metrics = Mock(
+        return_value={
+            "queries_executed": 0,
+            "queries_failed": 0,
+            "reconnections": 0,
+            "is_connected": True,
+        }
+    )
     pool.close = Mock()
     return pool
 
@@ -213,6 +206,7 @@ def mock_circuit_breaker():
 # Fixtures de Query Builder
 # ============================================================================
 
+
 @pytest.fixture
 def sample_cypher_queries():
     """Queries Cypher de exemplo para testes"""
@@ -220,13 +214,14 @@ def sample_cypher_queries():
         "create_node": "CREATE (n:Test {name: $name}) RETURN n",
         "match_node": "MATCH (n:Test {name: $name}) RETURN n",
         "create_relation": "MATCH (a:Test), (b:Test) WHERE a.name = $from AND b.name = $to CREATE (a)-[r:RELATES_TO]->(b) RETURN r",
-        "search": "MATCH (n:Test) WHERE n.name CONTAINS $term RETURN n LIMIT 10"
+        "search": "MATCH (n:Test) WHERE n.name CONTAINS $term RETURN n LIMIT 10",
     }
 
 
 # ============================================================================
 # Fixtures de Autonomous System
 # ============================================================================
+
 
 @pytest.fixture
 def mock_autonomous_improver(mock_neo4j_connection):
@@ -235,11 +230,9 @@ def mock_autonomous_improver(mock_neo4j_connection):
     improver.is_active = False
     improver.start = AsyncMock()
     improver.stop = AsyncMock()
-    improver.get_status = Mock(return_value={
-        "active": False,
-        "cycles_completed": 0,
-        "patterns_detected": 0
-    })
+    improver.get_status = Mock(
+        return_value={"active": False, "cycles_completed": 0, "patterns_detected": 0}
+    )
     return improver
 
 
@@ -250,12 +243,14 @@ def mock_self_improver(mock_neo4j_connection):
     improver.get_project_rules = Mock(return_value=[])
     improver.get_relevant_knowledge = Mock(return_value=[])
     improver.get_past_decisions = Mock(return_value=[])
-    improver.suggest_improvements = Mock(return_value={
-        "rules": [],
-        "relevant_knowledge": [],
-        "past_decisions": [],
-        "warnings": []
-    })
+    improver.suggest_improvements = Mock(
+        return_value={
+            "rules": [],
+            "relevant_knowledge": [],
+            "past_decisions": [],
+            "warnings": [],
+        }
+    )
     improver.learn_from_execution = Mock()
     return improver
 
@@ -263,6 +258,7 @@ def mock_self_improver(mock_neo4j_connection):
 # ============================================================================
 # Fixtures de Utilities
 # ============================================================================
+
 
 @pytest.fixture
 def mock_logger():
@@ -287,6 +283,7 @@ def temp_test_dir(tmp_path):
 # Fixtures de Performance Testing
 # ============================================================================
 
+
 @pytest.fixture
 def performance_metrics():
     """Fixture para coletar métricas de performance"""
@@ -294,7 +291,7 @@ def performance_metrics():
         "start_time": None,
         "end_time": None,
         "duration": None,
-        "memory_usage": None
+        "memory_usage": None,
     }
     return metrics
 
@@ -303,10 +300,12 @@ def performance_metrics():
 # Fixtures de Error Simulation
 # ============================================================================
 
+
 @pytest.fixture
 def simulate_connection_error():
     """Simula erro de conexão Neo4j"""
     from neo4j.exceptions import ServiceUnavailable
+
     return ServiceUnavailable("Connection refused")
 
 
@@ -314,6 +313,7 @@ def simulate_connection_error():
 def simulate_query_error():
     """Simula erro de query"""
     from neo4j.exceptions import CypherSyntaxError
+
     return CypherSyntaxError("Invalid syntax")
 
 
@@ -321,17 +321,12 @@ def simulate_query_error():
 # Hooks do Pytest
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configuração customizada do pytest"""
     config.addinivalue_line(
         "markers", "slow: marca testes lentos (deselecionar com '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marca testes de integração"
-    )
-    config.addinivalue_line(
-        "markers", "unit: marca testes unitários"
-    )
-    config.addinivalue_line(
-        "markers", "async_test: marca testes assíncronos"
-    )
+    config.addinivalue_line("markers", "integration: marca testes de integração")
+    config.addinivalue_line("markers", "unit: marca testes unitários")
+    config.addinivalue_line("markers", "async_test: marca testes assíncronos")

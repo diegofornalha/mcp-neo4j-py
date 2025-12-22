@@ -1,9 +1,9 @@
 """
 Configurações centralizadas para o sistema MCP Neo4j.
 """
+
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class Neo4jConfig:
         max_connection_pool_size: Tamanho máximo do pool de conexões
         connection_timeout: Timeout de conexão em segundos
     """
+
     uri: str
     username: str
     password: str
@@ -81,6 +82,7 @@ class ServerConfig:
         allow_origins: Origens permitidas para CORS (lista separada por vírgula)
         allowed_hosts: Hosts permitidos (lista separada por vírgula)
     """
+
     namespace: str = ""
     log_level: str = "INFO"
     transport: str = "stdio"
@@ -131,12 +133,17 @@ class MemoryConfig:
         min_connections: Mínimo de conexões para não ser considerado isolado
         max_cache_size: Tamanho máximo do cache LRU
         enable_fulltext_index: Se deve criar índice fulltext automaticamente
+        max_entities_per_query: Máximo de entidades retornadas por query (para evitar respostas grandes)
+        max_observations_per_entity: Máximo de observações por entidade (para evitar overflow)
     """
+
     relevance_threshold: float = 0.3
     days_until_stale: int = 90
     min_connections: int = 1
     max_cache_size: int = 1000
     enable_fulltext_index: bool = True
+    max_entities_per_query: int = 50
+    max_observations_per_entity: int = 20
 
     @classmethod
     def from_env(cls) -> "MemoryConfig":
@@ -149,6 +156,8 @@ class MemoryConfig:
             MEMORY_MIN_CONNECTIONS: Mínimo de conexões (padrão: 1)
             MEMORY_MAX_CACHE_SIZE: Tamanho do cache (padrão: 1000)
             MEMORY_ENABLE_FULLTEXT: Criar índice fulltext (padrão: true)
+            MEMORY_MAX_ENTITIES: Máximo de entidades por query (padrão: 50)
+            MEMORY_MAX_OBSERVATIONS: Máximo de observações por entidade (padrão: 20)
 
         Returns:
             Configuração criada
@@ -158,5 +167,8 @@ class MemoryConfig:
             days_until_stale=int(os.getenv("MEMORY_DAYS_UNTIL_STALE", "90")),
             min_connections=int(os.getenv("MEMORY_MIN_CONNECTIONS", "1")),
             max_cache_size=int(os.getenv("MEMORY_MAX_CACHE_SIZE", "1000")),
-            enable_fulltext_index=os.getenv("MEMORY_ENABLE_FULLTEXT", "true").lower() == "true",
+            enable_fulltext_index=os.getenv("MEMORY_ENABLE_FULLTEXT", "true").lower()
+            == "true",
+            max_entities_per_query=int(os.getenv("MEMORY_MAX_ENTITIES", "50")),
+            max_observations_per_entity=int(os.getenv("MEMORY_MAX_OBSERVATIONS", "20")),
         )

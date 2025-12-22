@@ -3,20 +3,19 @@ Testes unitários para database/queries.py (query_builder.py)
 Testa QueryBuilder e templates de queries Cypher
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch
-
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+import sys
 
-from mcp_neo4j.query_builder import QueryBuilder
+import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
+
+from mcp_neo4j.query_builder import QueryBuilder  # noqa: E402
 
 # ============================================================================
 # Testes do QueryBuilder
 # ============================================================================
+
 
 class TestQueryBuilder:
     """Testes da classe QueryBuilder"""
@@ -24,8 +23,7 @@ class TestQueryBuilder:
     def test_find_or_create_node_basic(self):
         """Testa criação de query para find or create node"""
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test_node"
+            label="Learning", name="test_node"
         )
 
         assert "MERGE" in query
@@ -36,15 +34,10 @@ class TestQueryBuilder:
 
     def test_find_or_create_node_with_properties(self):
         """Testa find or create com propriedades adicionais"""
-        properties = {
-            "description": "Test description",
-            "priority": 5
-        }
+        properties = {"description": "Test description", "priority": 5}
 
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test_node",
-            properties=properties
+            label="Learning", name="test_node", properties=properties
         )
 
         assert params["props"]["description"] == "Test description"
@@ -54,8 +47,7 @@ class TestQueryBuilder:
     def test_find_or_create_node_sets_accessed_at(self):
         """Verifica que query atualiza accessed_at em MATCH"""
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test_node"
+            label="Learning", name="test_node"
         )
 
         assert "ON MATCH SET" in query
@@ -68,7 +60,7 @@ class TestQueryBuilder:
             from_name="Alice",
             rel_type="KNOWS",
             to_label="Person",
-            to_name="Bob"
+            to_name="Bob",
         )
 
         assert "MATCH" in query
@@ -81,10 +73,7 @@ class TestQueryBuilder:
 
     def test_create_relationship_with_properties(self):
         """Testa criação de relacionamento com propriedades"""
-        rel_props = {
-            "since": "2024",
-            "strength": "strong"
-        }
+        rel_props = {"since": "2024", "strength": "strong"}
 
         query, params = QueryBuilder.create_relationship(
             from_label="Person",
@@ -92,7 +81,7 @@ class TestQueryBuilder:
             rel_type="KNOWS",
             to_label="Person",
             to_name="Bob",
-            rel_props=rel_props
+            rel_props=rel_props,
         )
 
         # rel_props é passado diretamente
@@ -103,13 +92,10 @@ class TestQueryBuilder:
         items = [
             {"name": "node1", "value": 1},
             {"name": "node2", "value": 2},
-            {"name": "node3", "value": 3}
+            {"name": "node3", "value": 3},
         ]
 
-        query, params = QueryBuilder.batch_create_nodes(
-            label="TestNode",
-            items=items
-        )
+        query, params = QueryBuilder.batch_create_nodes(label="TestNode", items=items)
 
         assert "UNWIND" in query
         assert "$items" in query
@@ -120,10 +106,7 @@ class TestQueryBuilder:
     def test_batch_create_sets_timestamp(self):
         """Verifica que batch create adiciona timestamp"""
         items = [{"name": "test"}]
-        query, params = QueryBuilder.batch_create_nodes(
-            label="TestNode",
-            items=items
-        )
+        query, params = QueryBuilder.batch_create_nodes(label="TestNode", items=items)
 
         assert "created_at" in query
         assert "datetime()" in query
@@ -131,9 +114,7 @@ class TestQueryBuilder:
     def test_search_nodes_basic(self):
         """Testa busca básica de nós"""
         query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term="python",
-            limit=10
+            label="Learning", search_term="python", limit=10
         )
 
         assert "MATCH" in query
@@ -145,10 +126,7 @@ class TestQueryBuilder:
 
     def test_search_nodes_checks_multiple_fields(self):
         """Verifica que search busca em múltiplos campos"""
-        query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term="test"
-        )
+        query, params = QueryBuilder.search_nodes(label="Learning", search_term="test")
 
         # Deve buscar em name, description e content
         assert query.count("CONTAINS") >= 3
@@ -158,10 +136,7 @@ class TestQueryBuilder:
 
     def test_search_nodes_orders_by_date(self):
         """Verifica ordenação por data"""
-        query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term="test"
-        )
+        query, params = QueryBuilder.search_nodes(label="Learning", search_term="test")
 
         assert "ORDER BY" in query
         assert "updated_at" in query or "created_at" in query
@@ -169,9 +144,7 @@ class TestQueryBuilder:
     def test_get_node_with_relationships_depth_1(self):
         """Testa busca de nó com relacionamentos profundidade 1"""
         query, params = QueryBuilder.get_node_with_relationships(
-            label="Learning",
-            name="test_node",
-            depth=1
+            label="Learning", name="test_node", depth=1
         )
 
         assert "MATCH" in query
@@ -182,9 +155,7 @@ class TestQueryBuilder:
     def test_get_node_with_relationships_depth_3(self):
         """Testa busca com profundidade customizada"""
         query, params = QueryBuilder.get_node_with_relationships(
-            label="Learning",
-            name="test_node",
-            depth=3
+            label="Learning", name="test_node", depth=3
         )
 
         assert "[*1..3]" in query
@@ -192,8 +163,7 @@ class TestQueryBuilder:
     def test_get_node_with_relationships_returns_collections(self):
         """Verifica que query retorna coleções de nós e relacionamentos"""
         query, params = QueryBuilder.get_node_with_relationships(
-            label="Learning",
-            name="test_node"
+            label="Learning", name="test_node"
         )
 
         assert "collect" in query.lower()
@@ -203,8 +173,7 @@ class TestQueryBuilder:
     def test_delete_node_cascade(self):
         """Testa deleção cascata de nó"""
         query, params = QueryBuilder.delete_node_cascade(
-            label="Learning",
-            name="test_node"
+            label="Learning", name="test_node"
         )
 
         assert "MATCH" in query
@@ -215,8 +184,7 @@ class TestQueryBuilder:
     def test_delete_node_returns_count(self):
         """Verifica que delete retorna contagem"""
         query, params = QueryBuilder.delete_node_cascade(
-            label="Learning",
-            name="test_node"
+            label="Learning", name="test_node"
         )
 
         assert "count(n)" in query
@@ -227,6 +195,7 @@ class TestQueryBuilder:
 # Testes de Query Validation
 # ============================================================================
 
+
 class TestQueryValidation:
     """Testes de validação de queries"""
 
@@ -234,10 +203,7 @@ class TestQueryValidation:
         """Verifica prevenção de injeção no label"""
         # Labels são interpolados diretamente, mas devem ser validados
         # Este teste documenta o comportamento atual
-        query, params = QueryBuilder.find_or_create_node(
-            label="Test",
-            name="node"
-        )
+        query, params = QueryBuilder.find_or_create_node(label="Test", name="node")
 
         assert "Test" in query
         # Em produção, deve haver validação de label
@@ -245,8 +211,7 @@ class TestQueryValidation:
     def test_parameter_escaping(self):
         """Verifica que valores são passados como parâmetros"""
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="'; DROP DATABASE; --"
+            label="Learning", name="'; DROP DATABASE; --"
         )
 
         # Nome malicioso deve estar em parâmetro, não na query
@@ -255,11 +220,10 @@ class TestQueryValidation:
 
     def test_special_characters_in_names(self):
         """Testa handling de caracteres especiais"""
-        special_name = "test's \"node\" with $pecial ch@rs"
+        special_name = 'test\'s "node" with $pecial ch@rs'
 
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name=special_name
+            label="Learning", name=special_name
         )
 
         assert params["name"] == special_name
@@ -270,15 +234,14 @@ class TestQueryValidation:
 # Testes de Edge Cases
 # ============================================================================
 
+
 class TestQueryBuilderEdgeCases:
     """Testes de casos extremos"""
 
     def test_empty_properties(self):
         """Testa com propriedades vazias"""
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test",
-            properties={}
+            label="Learning", name="test", properties={}
         )
 
         assert params["props"]["name"] == "test"
@@ -287,9 +250,7 @@ class TestQueryBuilderEdgeCases:
     def test_none_properties(self):
         """Testa com properties=None"""
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test",
-            properties=None
+            label="Learning", name="test", properties=None
         )
 
         assert params["props"] is not None
@@ -297,10 +258,7 @@ class TestQueryBuilderEdgeCases:
 
     def test_empty_items_batch(self):
         """Testa batch create com lista vazia"""
-        query, params = QueryBuilder.batch_create_nodes(
-            label="Test",
-            items=[]
-        )
+        query, params = QueryBuilder.batch_create_nodes(label="Test", items=[])
 
         assert params["items"] == []
         # Query deve funcionar mesmo com lista vazia
@@ -308,9 +266,7 @@ class TestQueryBuilderEdgeCases:
     def test_limit_zero(self):
         """Testa search com limit 0"""
         query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term="test",
-            limit=0
+            label="Learning", search_term="test", limit=0
         )
 
         assert params["limit"] == 0
@@ -320,9 +276,7 @@ class TestQueryBuilderEdgeCases:
         """Testa profundidade negativa (comportamento indefinido)"""
         # Documenta comportamento atual - pode precisar validação
         query, params = QueryBuilder.get_node_with_relationships(
-            label="Learning",
-            name="test",
-            depth=-1
+            label="Learning", name="test", depth=-1
         )
 
         # Neo4j pode rejeitar, mas query builder não valida
@@ -332,8 +286,7 @@ class TestQueryBuilderEdgeCases:
         long_name = "x" * 10000
 
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name=long_name
+            label="Learning", name=long_name
         )
 
         assert params["name"] == long_name
@@ -344,8 +297,7 @@ class TestQueryBuilderEdgeCases:
         unicode_name = "测试节点 🚀 émojis"
 
         query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name=unicode_name
+            label="Learning", name=unicode_name
         )
 
         assert params["name"] == unicode_name
@@ -355,8 +307,7 @@ class TestQueryBuilderEdgeCases:
         search_term = "line1\nline2\r\nline3"
 
         query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term=search_term
+            label="Learning", search_term=search_term
         )
 
         assert params["search_term"] == search_term
@@ -366,6 +317,7 @@ class TestQueryBuilderEdgeCases:
 # Testes de Performance
 # ============================================================================
 
+
 @pytest.mark.slow
 class TestQueryBuilderPerformance:
     """Testes de performance do query builder"""
@@ -374,10 +326,7 @@ class TestQueryBuilderPerformance:
         """Testa criação de query para grande volume"""
         items = [{"name": f"node_{i}", "value": i} for i in range(10000)]
 
-        query, params = QueryBuilder.batch_create_nodes(
-            label="TestNode",
-            items=items
-        )
+        query, params = QueryBuilder.batch_create_nodes(label="TestNode", items=items)
 
         assert len(params["items"]) == 10000
         # Query não deve crescer com número de items (usa UNWIND)
@@ -385,9 +334,7 @@ class TestQueryBuilderPerformance:
     def test_search_with_large_limit(self):
         """Testa search com limit muito alto"""
         query, params = QueryBuilder.search_nodes(
-            label="Learning",
-            search_term="test",
-            limit=1000000
+            label="Learning", search_term="test", limit=1000000
         )
 
         assert params["limit"] == 1000000
@@ -397,15 +344,13 @@ class TestQueryBuilderPerformance:
 # Testes de Compatibilidade
 # ============================================================================
 
+
 class TestCypherCompatibility:
     """Testes de compatibilidade com Cypher"""
 
     def test_merge_syntax(self):
         """Verifica sintaxe MERGE correta"""
-        query, params = QueryBuilder.find_or_create_node(
-            label="Learning",
-            name="test"
-        )
+        query, params = QueryBuilder.find_or_create_node(label="Learning", name="test")
 
         # MERGE deve ter ON CREATE e ON MATCH
         assert "MERGE" in query
@@ -415,8 +360,7 @@ class TestCypherCompatibility:
     def test_unwind_syntax(self):
         """Verifica sintaxe UNWIND correta"""
         query, params = QueryBuilder.batch_create_nodes(
-            label="Test",
-            items=[{"name": "test"}]
+            label="Test", items=[{"name": "test"}]
         )
 
         assert "UNWIND $items AS item" in query
@@ -424,11 +368,7 @@ class TestCypherCompatibility:
     def test_relationship_syntax(self):
         """Verifica sintaxe de relacionamento"""
         query, params = QueryBuilder.create_relationship(
-            from_label="A",
-            from_name="a",
-            rel_type="REL",
-            to_label="B",
-            to_name="b"
+            from_label="A", from_name="a", rel_type="REL", to_label="B", to_name="b"
         )
 
         # Deve ter padrão correto (from)-[r:REL]->(to)

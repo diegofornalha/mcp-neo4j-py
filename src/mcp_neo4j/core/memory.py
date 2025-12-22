@@ -4,19 +4,20 @@ Sistema de memória Neo4j baseado no repositório oficial neo4j-contrib/mcp-neo4
 Este módulo implementa a classe Neo4jMemory que gerencia entidades e relações
 no grafo de conhecimento usando AsyncDriver do Neo4j.
 """
-import logging
-from typing import Any, Dict, List
+
+from typing import Any, Dict, List, Optional
 
 from neo4j import AsyncDriver, RoutingControl
 
+from ..utils.logging_setup import get_logger
+from .config import MemoryConfig
 from .entities import (
     Entity,
-    Relation,
     KnowledgeGraph,
     ObservationAddition,
     ObservationDeletion,
+    Relation,
 )
-from ..utils.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -31,16 +32,19 @@ class Neo4jMemory:
 
     Attributes:
         driver: AsyncDriver do Neo4j
+        config: Configuração de memória (opcional)
     """
 
-    def __init__(self, neo4j_driver: AsyncDriver):
+    def __init__(self, neo4j_driver: AsyncDriver, config: Optional[MemoryConfig] = None):
         """
         Inicializa sistema de memória.
 
         Args:
             neo4j_driver: Driver assíncrono do Neo4j
+            config: Configuração de memória (usa padrão se não especificado)
         """
         self.driver = neo4j_driver
+        self.config = config or MemoryConfig()
 
     async def create_fulltext_index(self) -> None:
         """
@@ -58,10 +62,7 @@ class Neo4jMemory:
             FOR (m:Memory)
             ON EACH [m.name, m.type, m.observations]
             """
-            await self.driver.execute_query(
-                query,
-                routing_control=RoutingControl.WRITE
-            )
+            await self.driver.execute_query(query, routing_control=RoutingControl.WRITE)
             logger.info("Índice fulltext criado/verificado")
 
         except Exception as e:
@@ -70,31 +71,38 @@ class Neo4jMemory:
 
     async def load_graph(self, filter_query: str = "*") -> KnowledgeGraph:
         """
-        Carrega grafo de conhecimento do Neo4j.
+        Carrega grafo de conhecimento do Neo4j com limites para evitar respostas grandes.
 
         Args:
             filter_query: Query de filtro para busca fulltext (padrão: "*" para tudo)
 
         Returns:
-            KnowledgeGraph com entidades e relações
+            KnowledgeGraph com entidades e relações (limitado)
 
         Example:
-            # Carregar tudo
+            # Carregar tudo (limitado a max_entities_per_query)
             graph = await memory.load_graph()
 
             # Buscar específico
             graph = await memory.load_graph("John Smith")
         """
-        logger.info("Carregando grafo de conhecimento do Neo4j")
+        logger.info("Carregando grafo de conhecimento do Neo4j (com limites)")
+
+        # Limites de configuração
+        max_entities = self.config.max_entities_per_query
+        max_obs = self.config.max_observations_per_entity
 
         query = """
             CALL db.index.fulltext.queryNodes('search', $filter)
             YIELD node as entity, score
+            WITH entity, score
+            ORDER BY score DESC
+            LIMIT $max_entities
             OPTIONAL MATCH (entity)-[r]-(other)
             RETURN collect(distinct {
                 name: entity.name,
                 type: entity.type,
-                observations: entity.observations
+                observations: entity.observations[0..$max_obs]
             }) as nodes,
             collect(distinct {
                 source: startNode(r).name,
@@ -105,37 +113,46 @@ class Neo4jMemory:
 
         result = await self.driver.execute_query(
             query,
-            {"filter": filter_query},
-            routing_control=RoutingControl.READ
+            {
+                "filter": filter_query,
+                "max_entities": max_entities,
+                "max_obs": max_obs,
+            },
+            routing_control=RoutingControl.READ,
         )
 
         if not result.records:
             return KnowledgeGraph(entities=[], relations=[])
 
         record = result.records[0]
-        nodes = record.get('nodes', [])
-        rels = record.get('relations', [])
+        nodes = record.get("nodes", [])
+        rels = record.get("relations", [])
 
         # Converter para modelos Pydantic
         entities = [
             Entity(
-                name=node['name'],
-                type=node['type'],
-                observations=node.get('observations', [])
+                name=node["name"],
+                type=node["type"],
+                observations=node.get("observations", []),
             )
-            for node in nodes if node.get('name')
+            for node in nodes
+            if node.get("name")
         ]
 
         relations = [
             Relation(
-                source=rel['source'],
-                target=rel['target'],
-                relationType=rel['relationType']
+                source=rel["source"],
+                target=rel["target"],
+                relationType=rel["relationType"],
             )
-            for rel in rels if rel.get('relationType')
+            for rel in rels
+            if rel.get("relationType")
         ]
 
-        logger.debug(f"Carregadas {len(entities)} entidades e {len(relations)} relações")
+        logger.info(
+            f"Carregadas {len(entities)} entidades (limite: {max_entities}) "
+            f"e {len(relations)} relações (obs por entidade: máx {max_obs})"
+        )
 
         return KnowledgeGraph(entities=entities, relations=relations)
 
@@ -168,7 +185,7 @@ class Neo4jMemory:
             await self.driver.execute_query(
                 query,
                 {"entity": entity.model_dump()},
-                routing_control=RoutingControl.WRITE
+                routing_control=RoutingControl.WRITE,
             )
 
         logger.info(f"Criadas {len(entities)} entidades com sucesso")
@@ -205,15 +222,14 @@ class Neo4jMemory:
             await self.driver.execute_query(
                 query,
                 {"relation": relation.model_dump()},
-                routing_control=RoutingControl.WRITE
+                routing_control=RoutingControl.WRITE,
             )
 
         logger.info(f"Criadas {len(relations)} relações com sucesso")
         return relations
 
     async def add_observations(
-        self,
-        observations: List[ObservationAddition]
+        self, observations: List[ObservationAddition]
     ) -> List[Dict[str, Any]]:
         """
         Adiciona observações a entidades existentes.
@@ -246,18 +262,15 @@ class Neo4jMemory:
         result = await self.driver.execute_query(
             query,
             {"observations": [obs.model_dump() for obs in observations]},
-            routing_control=RoutingControl.WRITE
+            routing_control=RoutingControl.WRITE,
         )
 
         results = [
-            {
-                "entityName": record.get("name"),
-                "addedObservations": record.get("new")
-            }
+            {"entityName": record.get("name"), "addedObservations": record.get("new")}
             for record in result.records
         ]
 
-        logger.info(f"Observações adicionadas com sucesso")
+        logger.info("Observações adicionadas com sucesso")
         return results
 
     async def delete_entities(self, entity_names: List[str]) -> None:
@@ -279,9 +292,7 @@ class Neo4jMemory:
         """
 
         await self.driver.execute_query(
-            query,
-            {"entities": entity_names},
-            routing_control=RoutingControl.WRITE
+            query, {"entities": entity_names}, routing_control=RoutingControl.WRITE
         )
 
         logger.info(f"Deletadas {len(entity_names)} entidades com sucesso")
@@ -313,10 +324,10 @@ class Neo4jMemory:
         await self.driver.execute_query(
             query,
             {"deletions": [deletion.model_dump() for deletion in deletions]},
-            routing_control=RoutingControl.WRITE
+            routing_control=RoutingControl.WRITE,
         )
 
-        logger.info(f"Observações deletadas com sucesso")
+        logger.info("Observações deletadas com sucesso")
 
     async def delete_relations(self, relations: List[Relation]) -> None:
         """
@@ -345,7 +356,7 @@ class Neo4jMemory:
             await self.driver.execute_query(
                 query,
                 {"relation": relation.model_dump()},
-                routing_control=RoutingControl.WRITE
+                routing_control=RoutingControl.WRITE,
             )
 
         logger.info(f"Deletadas {len(relations)} relações com sucesso")
@@ -401,18 +412,18 @@ class Neo4jMemory:
         """
 
         result_nodes = await self.driver.execute_query(
-            query,
-            {"names": names},
-            routing_control=RoutingControl.READ
+            query, {"names": names}, routing_control=RoutingControl.READ
         )
 
         entities: List[Entity] = []
         for record in result_nodes.records:
-            entities.append(Entity(
-                name=record['name'],
-                type=record['type'],
-                observations=record.get('observations', [])
-            ))
+            entities.append(
+                Entity(
+                    name=record["name"],
+                    type=record["type"],
+                    observations=record.get("observations", []),
+                )
+            )
 
         # Buscar relações para entidades encontradas
         relations: List[Relation] = []
@@ -426,17 +437,19 @@ class Neo4jMemory:
             """
 
             result_relations = await self.driver.execute_query(
-                query,
-                {"names": names},
-                routing_control=RoutingControl.READ
+                query, {"names": names}, routing_control=RoutingControl.READ
             )
 
             for record in result_relations.records:
-                relations.append(Relation(
-                    source=record["source"],
-                    target=record["target"],
-                    relationType=record["relationType"]
-                ))
+                relations.append(
+                    Relation(
+                        source=record["source"],
+                        target=record["target"],
+                        relationType=record["relationType"],
+                    )
+                )
 
-        logger.info(f"Encontradas {len(entities)} entidades e {len(relations)} relações")
+        logger.info(
+            f"Encontradas {len(entities)} entidades e {len(relations)} relações"
+        )
         return KnowledgeGraph(entities=entities, relations=relations)

@@ -1,6 +1,7 @@
 """
 Funções de formatação e helpers para o sistema MCP Neo4j.
 """
+
 from typing import Any, Dict, List
 
 
@@ -52,9 +53,9 @@ def format_entity_dict(entity: Any) -> Dict[str, Any]:
     Returns:
         Dicionário com dados formatados
     """
-    if hasattr(entity, 'model_dump'):
+    if hasattr(entity, "model_dump"):
         return entity.model_dump()
-    elif hasattr(entity, 'dict'):
+    elif hasattr(entity, "dict"):
         return entity.dict()
     else:
         return dict(entity)
@@ -70,9 +71,9 @@ def format_relation_dict(relation: Any) -> Dict[str, Any]:
     Returns:
         Dicionário com dados formatados
     """
-    if hasattr(relation, 'model_dump'):
+    if hasattr(relation, "model_dump"):
         return relation.model_dump()
-    elif hasattr(relation, 'dict'):
+    elif hasattr(relation, "dict"):
         return relation.dict()
     else:
         return dict(relation)
@@ -93,9 +94,9 @@ def format_knowledge_graph_response(entities: List[Any], relations: List[Any]) -
     relation_summary = f"Relações: {len(relations)}"
 
     if entities:
-        entity_types = {}
+        entity_types: dict[str, int] = {}
         for entity in entities:
-            entity_type = getattr(entity, 'type', 'unknown')
+            entity_type = getattr(entity, "type", "unknown")
             entity_types[entity_type] = entity_types.get(entity_type, 0) + 1
 
         type_details = ", ".join([f"{t}: {c}" for t, c in entity_types.items()])

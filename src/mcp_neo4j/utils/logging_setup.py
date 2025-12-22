@@ -1,9 +1,9 @@
 """
 Configuração de logging estruturado para o sistema MCP Neo4j.
 """
+
 import logging
 import sys
-from typing import Any
 
 
 def setup_logging(log_level: str = "INFO") -> None:

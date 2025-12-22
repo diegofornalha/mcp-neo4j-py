@@ -8,19 +8,11 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from ..core.entities import (
-    Entity,
-    ObservationAddition,
-    ObservationDeletion,
-    Relation,
-)
+from ..core.entities import Entity, ObservationAddition, ObservationDeletion, Relation
 from ..core.memory import Neo4jMemory
 from ..utils.formatting import format_namespace
 from ..utils.logging_setup import get_logger
-from ..utils.validation import (
-    validate_entity_name,
-    validate_relation_type,
-)
+from ..utils.validation import validate_entity_name, validate_relation_type
 
 logger = get_logger(__name__)
 
@@ -113,7 +105,11 @@ def create_mcp_server(
 
         try:
             normalised = [
-                relation.model_copy(update={"relationType": validate_relation_type(relation.relationType)})
+                relation.model_copy(
+                    update={
+                        "relationType": validate_relation_type(relation.relationType)
+                    }
+                )
                 for relation in relations
             ]
             created = await memory.create_relations(normalised)
@@ -177,7 +173,11 @@ def create_mcp_server(
 
         try:
             normalised = [
-                relation.model_copy(update={"relationType": validate_relation_type(relation.relationType)})
+                relation.model_copy(
+                    update={
+                        "relationType": validate_relation_type(relation.relationType)
+                    }
+                )
                 for relation in relations
             ]
             await memory.delete_relations(normalised)

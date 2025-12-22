@@ -3,20 +3,21 @@ Testes unitários para database/batch.py (batch_operations.py)
 Testa BatchProcessor e operações em lote
 """
 
-import pytest
-import time
-from unittest.mock import Mock, patch, call
-
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+import sys
+import time
+from unittest.mock import Mock
 
-from mcp_neo4j.batch_operations import BatchProcessor
+import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
+
+from mcp_neo4j.batch_operations import BatchProcessor  # noqa: E402
 
 # ============================================================================
 # Testes do BatchProcessor
 # ============================================================================
+
 
 class TestBatchProcessor:
     """Testes da classe BatchProcessor"""
@@ -54,7 +55,9 @@ class TestBatchProcessor:
         assert result["failed"] == 0
         assert result["batches"] == 3
 
-    def test_process_in_batches_calls_connection_pool(self, batch_processor, mock_connection_pool):
+    def test_process_in_batches_calls_connection_pool(
+        self, batch_processor, mock_connection_pool
+    ):
         """Verifica que batch processor chama connection pool"""
         items = [{"name": "test"}]
 
@@ -65,9 +68,13 @@ class TestBatchProcessor:
 
         mock_connection_pool.execute_with_retry.assert_called_once()
 
-    def test_process_in_batches_handles_errors(self, batch_processor, mock_connection_pool):
+    def test_process_in_batches_handles_errors(
+        self, batch_processor, mock_connection_pool
+    ):
         """Testa handling de erros durante processamento"""
-        mock_connection_pool.execute_with_retry.side_effect = Exception("Database error")
+        mock_connection_pool.execute_with_retry.side_effect = Exception(
+            "Database error"
+        )
 
         items = [{"name": f"item_{i}"} for i in range(150)]
 
@@ -80,7 +87,9 @@ class TestBatchProcessor:
         assert result["failed"] == 150
         assert result["processed"] == 0
 
-    def test_process_in_batches_partial_failure(self, batch_processor, mock_connection_pool):
+    def test_process_in_batches_partial_failure(
+        self, batch_processor, mock_connection_pool
+    ):
         """Testa processamento com falhas parciais"""
         call_count = [0]
 
@@ -111,9 +120,7 @@ class TestBatchProcessor:
             return "CREATE (n:Test)", {"batch": batch}
 
         result = batch_processor.process_in_batches(
-            items,
-            processor_func,
-            batch_size=50  # Override default
+            items, processor_func, batch_size=50  # Override default
         )
 
         # 150 items / 50 per batch = 3 batches
@@ -178,6 +185,7 @@ class TestBatchProcessor:
 # Testes dos Métodos Específicos
 # ============================================================================
 
+
 class TestBatchProcessorMethods:
     """Testes dos métodos específicos de batch operations"""
 
@@ -195,10 +203,7 @@ class TestBatchProcessorMethods:
 
     def test_batch_create_nodes(self, batch_processor, mock_connection_pool):
         """Testa criação em batch de nós"""
-        nodes_data = [
-            {"name": "node1", "value": 1},
-            {"name": "node2", "value": 2}
-        ]
+        nodes_data = [{"name": "node1", "value": 1}, {"name": "node2", "value": 2}]
 
         result = batch_processor.batch_create_nodes("TestLabel", nodes_data)
 
@@ -230,7 +235,7 @@ class TestBatchProcessorMethods:
         """Testa criação em batch de relacionamentos"""
         relationships = [
             {"from": "node1", "to": "node2", "type": "RELATES_TO"},
-            {"from": "node2", "to": "node3", "type": "RELATES_TO"}
+            {"from": "node2", "to": "node3", "type": "RELATES_TO"},
         ]
 
         result = batch_processor.batch_create_relationships(relationships)
@@ -242,6 +247,7 @@ class TestBatchProcessorMethods:
 # ============================================================================
 # Testes de Performance
 # ============================================================================
+
 
 @pytest.mark.slow
 class TestBatchProcessorPerformance:
@@ -283,6 +289,7 @@ class TestBatchProcessorPerformance:
 # ============================================================================
 # Testes de Error Recovery
 # ============================================================================
+
 
 class TestBatchProcessorErrorRecovery:
     """Testes de recuperação de erros"""
@@ -334,6 +341,7 @@ class TestBatchProcessorErrorRecovery:
 # ============================================================================
 # Testes de Edge Cases
 # ============================================================================
+
 
 class TestBatchProcessorEdgeCases:
     """Testes de casos extremos"""
@@ -390,6 +398,7 @@ class TestBatchProcessorEdgeCases:
 # Testes de Logging
 # ============================================================================
 
+
 class TestBatchProcessorLogging:
     """Testes de logging do batch processor"""
 
@@ -426,4 +435,6 @@ class TestBatchProcessorLogging:
             processor.process_in_batches(items, processor_func)
 
         # Deve ter log de erro
-        assert any("Erro ao processar batch" in record.message for record in caplog.records)
+        assert any(
+            "Erro ao processar batch" in record.message for record in caplog.records
+        )

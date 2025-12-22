@@ -1,7 +1,9 @@
 """
 Validação de inputs e dados para o sistema MCP Neo4j.
 """
+
 from typing import Any, Dict
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -14,11 +16,12 @@ class MemoryProperties(BaseModel):
         content: Conteúdo da memória (opcional)
         category: Categoria da memória (padrão: "general")
     """
+
     name: str = Field(min_length=1, max_length=255, description="Nome da memória")
     content: str = Field(default="", description="Conteúdo da memória")
     category: str = Field(default="general", description="Categoria da memória")
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def name_not_empty(cls, v: str) -> str:
         """Valida que o nome não seja vazio após strip."""
@@ -26,7 +29,7 @@ class MemoryProperties(BaseModel):
             raise ValueError("Name não pode ser vazio ou apenas espaços")
         return v.strip()
 
-    @field_validator('category')
+    @field_validator("category")
     @classmethod
     def category_valid(cls, v: str) -> str:
         """Valida e sanitiza categoria."""
@@ -62,7 +65,7 @@ def validate_label(label: str) -> str:
     if not label[0].isalpha():
         raise ValueError("Label deve começar com letra")
 
-    if not all(c.isalnum() or c == '_' for c in label):
+    if not all(c.isalnum() or c == "_" for c in label):
         raise ValueError("Label deve conter apenas letras, números e underscores")
 
     return label
@@ -119,8 +122,10 @@ def validate_relation_type(relation_type: str) -> str:
     if not relation_type[0].isalpha():
         raise ValueError("Tipo de relação deve começar com letra")
 
-    if not all(c.isalnum() or c == '_' for c in relation_type):
-        raise ValueError("Tipo de relação deve conter apenas letras, números e underscores")
+    if not all(c.isalnum() or c == "_" for c in relation_type):
+        raise ValueError(
+            "Tipo de relação deve conter apenas letras, números e underscores"
+        )
 
     return relation_type
 

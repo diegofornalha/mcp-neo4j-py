@@ -21,12 +21,18 @@ async def _prepare_memory(
     """Establish connection and prepare the Neo4j memory layer."""
 
     await connection.connect()
-    memory = Neo4jMemory(connection.driver)
+    memory = Neo4jMemory(connection.driver, config=memory_config)
 
     if memory_config.enable_fulltext_index:
         logger.debug("Garantindo índice fulltext")
         with suppress(Exception):
             await memory.create_fulltext_index()
+
+    logger.info(
+        f"Neo4jMemory configurado com limites: "
+        f"{memory_config.max_entities_per_query} entidades, "
+        f"{memory_config.max_observations_per_entity} observações por entidade"
+    )
 
     return memory
 
@@ -45,7 +51,10 @@ def run_server() -> None:
 
     server_config = ServerConfig.from_env()
     setup_logging(server_config.log_level)
-    logger.info("Iniciando servidor MCP Neo4j (namespace=%s)", server_config.namespace or "default")
+    logger.info(
+        "Iniciando servidor MCP Neo4j (namespace=%s)",
+        server_config.namespace or "default",
+    )
 
     neo4j_config = Neo4jConfig.from_env()
     memory_config = MemoryConfig.from_env()
@@ -59,7 +68,9 @@ def run_server() -> None:
 
         async def _ensure_init(self):
             if not self._initialized:
-                self._connection, self._memory = await _initialise(neo4j_config, memory_config)
+                self._connection, self._memory = await _initialise(
+                    neo4j_config, memory_config
+                )
                 self._initialized = True
             return self._memory
 
@@ -69,6 +80,7 @@ def run_server() -> None:
                 memory = await self._ensure_init()
                 method = getattr(memory, name)
                 return await method(*args, **kwargs)
+
             return async_wrapper
 
     lazy_memory = LazyMemory()

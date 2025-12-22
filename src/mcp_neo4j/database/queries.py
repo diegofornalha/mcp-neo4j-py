@@ -1,7 +1,8 @@
 """
 Query builder e templates de queries Cypher otimizadas.
 """
-from typing import Optional, List, Dict, Any
+
+from typing import Any, Dict, List, Optional
 
 
 class MemoryQueries:
